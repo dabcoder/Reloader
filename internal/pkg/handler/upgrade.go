@@ -256,7 +256,23 @@ func PerformAction(clients kube.Clients, config util.Config, upgradeFuncs callba
 			values := strings.Split(annotationValue, ",")
 			for _, value := range values {
 				value = strings.TrimSpace(value)
-				re := regexp.MustCompile("^" + value + "$")
+
+				// Handle namespace-specific format
+				refNamespace, refName := util.ParseResourceName(value)
+
+				// If a namespace was specified in the annotation and it doesn't match the ConfigMap's namespace,
+				// skip this entry
+				if refNamespace != "" && refNamespace != config.Namespace {
+					continue
+				}
+
+				// If namespace was specified in the annotation, use just the name for regex matching
+				matchName := refName
+				if refNamespace == "" {
+					matchName = value // Use original value if no namespace specified
+				}
+
+				re := regexp.MustCompile("^" + matchName + "$")
 				if re.Match([]byte(config.ResourceName)) {
 					result = strategy(upgradeFuncs, i, config, false)
 					if result == constants.Updated {
